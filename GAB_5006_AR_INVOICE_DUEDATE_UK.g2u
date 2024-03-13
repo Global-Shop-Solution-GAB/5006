@@ -1,0 +1,169 @@
+﻿Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Created by RRC
+'11/22/2013 1:51pm
+V.Local.sSql.Declare(String)
+V.Local.sSql2.Declare(String)
+
+V.Local.dateInvoice.Declare(Date)
+V.Local.dateDate.Declare(Date)
+V.Local.dateDueOrig.Declare(Date)
+V.Local.dateDue.Declare(Date)
+V.Local.i1.Declare
+V.Local.i2.Declare
+V.Local.sDueDate.Declare(String)
+V.Local.sDue.Declare(String)
+V.Local.sInvoiceDate.Declare
+V.Local.iD.Declare
+
+'Fill RST from AR_OPEN_ITEMS tabl
+'V.Local.sSql.Set("Select INVOICE, DATE_INVOICE,DUE_DATE FROM AR_OPEN_ITEMS WHERE BATCH_CODE=10")
+'V.Local.sSql.Set("Select INVOICE, DATE_INVOICE_CYMD,DUE_DATE,TERMS_CODE FROM AR_OPEN_ITEMS WHERE BATCH_CODE=10 AND (TERMS_CODE=2 OR TERMS_CODE = 3 OR TERMS_CODE = 4 OR TERMS_CODE = 5)")
+
+F.ODBC.Connection!Conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+F.Intrinsic.UI.InvokeWaitDialog("Processing AR Invoice Due Date Update","AR Invoice Due Date Update [APAC]") 
+
+F.Data.DataTable.CreateFromSQL("dtAR","conx","Select INVOICE, DATE_INVOICE,DUE_DATE,TERMS_CODE FROM V_AR_OPEN_ITEMS WHERE BATCH_CODE=10 AND (TERMS_CODE='2' OR TERMS_CODE = '3' OR TERMS_CODE = '4' OR TERMS_CODE = '5')")
+F.Intrinsic.Control.If(V.DataTable.dtAR.RowCount,>,0)
+	F.Intrinsic.Control.For(V.Local.i1,0,V.DataTable.dtAR.RowCount--,1)
+		F.Intrinsic.Math.Add(V.Local.i1,1,V.Local.i2)
+		F.Intrinsic.UI.ChangeWaitStatus("Processing AR Invoice Due Date Update",V.Local.i2,1,V.DataTable.dtAR.RowCount)
+		'Loop through the invoices
+		'Check for the terms of every invoice
+		F.Intrinsic.Control.If(V.DataTable.dtAR(V.Local.i1).TERMS_CODE!FieldValLong,=,2)
+			'Modified by Deni Y 12/7/2023 - BEGIN
+			'F.Intrinsic.Date.DateAdd("D",30,V.DataTable.dtAR(V.Local.i1).DATE_INVOICE!FieldVal,V.Local.dateDue)
+			F.Intrinsic.Date.DateAdd("M",1,V.DataTable.dtAR(V.Local.i1).DATE_INVOICE!FieldVal,V.Local.dateDue)
+			'Modified by Deni Y 12/7/2023 - End
+			F.Intrinsic.Date.EndOfMonth(V.Local.dateDue,V.Local.dateDue)
+		F.Intrinsic.Control.ElseIf(V.DataTable.dtAR(V.Local.i1).TERMS_CODE!FieldValLong,=,3)
+			'Modified by Deni Y 12/7/2023 - BEGIN
+			'F.Intrinsic.Date.DateAdd("D",60,V.DataTable.dtAR(V.Local.i1).DATE_INVOICE!FieldVal,V.Local.dateDue)
+			F.Intrinsic.Date.DateAdd("M",2,V.DataTable.dtAR(V.Local.i1).DATE_INVOICE!FieldVal,V.Local.dateDue)
+			'Modified by Deni Y 12/7/2023 - End
+			F.Intrinsic.Date.EndOfMonth(V.Local.dateDue,V.Local.dateDue)
+		F.Intrinsic.Control.ElseIf(V.DataTable.dtAR(V.Local.i1).TERMS_CODE!FieldValLong,=,4)			
+'			F.Intrinsic.Date.DateAdd("D",45,V.DataTable.dtAR(V.Local.i1).DATE_INVOICE!FieldVal,V.Local.dateDue)
+			F.Intrinsic.Date.DateAdd("M",1,V.DataTable.dtAR(V.Local.i1).DATE_INVOICE!FieldVal,V.Local.dateDue)
+			'Date is between 1 and 28, change it to next month right away
+			F.Intrinsic.Date.Day(V.DataTable.dtAR(V.Local.i1).DATE_INVOICE!FieldVal,V.Local.iD)
+			F.Intrinsic.Control.If(V.Local.iD,<=,28)
+				F.Intrinsic.Date.DateAdd("M",1,V.Local.dateDue,V.Local.dateDue)
+			'Or else add 5 days to go to the next month
+			F.Intrinsic.Control.Else
+				F.Intrinsic.Date.DateAdd("D",5,V.Local.dateDue,V.Local.dateDue)
+			F.Intrinsic.Control.EndIf
+			F.Intrinsic.Date.EndOfMonth(V.Local.dateDue,V.Local.dateDue)
+			
+			F.Intrinsic.Date.BeginningOfMonth(V.Local.dateDue,V.Local.dateDue)
+			F.Intrinsic.Date.DateAdd("D",14,V.Local.dateDue,V.Local.dateDue)
+		F.Intrinsic.Control.ElseIf(V.DataTable.dtAR(V.Local.i1).TERMS_CODE!FieldValLong,=,5)
+			'Modified by Deni Y 12/7/2023 - BEGIN
+			'F.Intrinsic.Date.DateAdd("D",90,V.DataTable.dtAR(V.Local.i1).DATE_INVOICE!FieldVal,V.Local.dateDue)
+			F.Intrinsic.Date.DateAdd("M",3,V.DataTable.dtAR(V.Local.i1).DATE_INVOICE!FieldVal,V.Local.dateDue)
+			'Modified by Deni Y 12/7/2023 - End
+			F.Intrinsic.Date.EndOfMonth(V.Local.dateDue,V.Local.dateDue)
+		F.Intrinsic.Control.EndIf
+		
+		'Check if there is a record in GAB_5006_AR_DUE_DATE
+		F.Intrinsic.String.Build("select * from GAB_5006_AR_DUE_DATE where invoice = '{0}' and date_invoice = '{1}'",V.DataTable.dtAR(V.Local.i1).INVOICE!FieldValTrim,V.DataTable.dtAR(V.Local.i1).DATE_INVOICE!FieldValPervasiveDate,V.Local.sSql)
+		F.ODBC.Connection!Conx.OpenLocalRecordsetRO("rst",V.Local.sSql)
+		F.Intrinsic.Control.If(V.ODBC.Conx!rst.EOF,=,True)
+			F.Intrinsic.String.Format(V.DataTable.dtAR(V.Local.i1).DATE_INVOICE!FieldVal,"YYYYMMDD",V.Local.sInvoiceDate)
+			F.Intrinsic.String.Format(V.Local.dateDue,"YYYYMMDD",V.Local.sDueDate)
+			F.Intrinsic.String.Build("update AR_OPEN_ITEMS set due_date = '{0}' where invoice = '{1}' and DATE_INVOICE_CYMD = '{2}'",V.Local.sDueDate.Trim,V.DataTable.dtAR(V.Local.i1).INVOICE!FieldValTrim,V.Local.sInvoiceDate.Trim,V.Local.sSql)
+			F.ODBC.Connection!Conx.Execute(V.Local.sSql)
+			F.Intrinsic.String.Build("insert into GAB_5006_AR_DUE_DATE(invoice,date_invoice,date_due_original,date_due_new) values('{0}','{1}','{2}','{3}');",V.DataTable.dtAR(V.Local.i1).INVOICE!FieldValTrim,V.DataTable.dtAR(V.Local.i1).DATE_INVOICE!FieldValPervasiveDate,V.DataTable.dtAR(V.Local.i1).DUE_DATE!FieldValPervasiveDate,V.Local.dateDue.PervasiveDate,V.Local.sSql)
+			F.ODBC.Connection!Conx.Execute(V.Local.sSql)
+		F.Intrinsic.Control.EndIf
+		F.ODBC.Conx!rst.Close
+	F.Intrinsic.Control.Next(V.Local.i1)
+F.Intrinsic.Control.EndIf
+F.Data.DataTable.Close("dtAR")
+
+F.Intrinsic.UI.CloseWaitDialog
+
+'F.ODBC.Connection!Conx.OpenRecordsetRW("rstInv",V.Local.sSql)
+'F.Intrinsic.Control.If(V.ODBC.Conx!rstInv.EOF,=,False)
+'	F.Intrinsic.Control.DoUntil(V.ODBC.Conx!rstInv.EOF,=,True)
+''		F.Intrinsic.Date.ConvertDString(V.ODBC.Conx!rstInv.FieldVal!DATE_INVOICE,"MMDDYY",V.Local.dateInvoice)
+'		F.Intrinsic.Control.If(V.ODBC.Conx!rstInv.FieldValTrim!DATE_INVOICE_CYMD,<>,"")
+'			F.Intrinsic.Date.ConvertDString(V.ODBC.Conx!rstInv.FieldVal!DATE_INVOICE_CYMD,"YYYYMMDD",V.Local.dateInvoice)
+'			V.Local.dateDate.Set(V.Local.dateInvoice)
+'			V.Local.sDueDateOrig.Set(V.ODBC.Conx!rstInv.FieldVal!DUE_DATE)
+'			' Convert Due Date Original to Store
+'			F.Intrinsic.Control.If(V.Local.sDueDateOrig.Trim,=,"")
+'				V.Local.iYear.Set(1900)
+'				V.Local.iMonth.Set(1)
+'				V.Local.iDay.Set(1)
+'			F.Intrinsic.Control.Else
+'				F.Intrinsic.String.Left(V.Local.sDueDateOrig,4,V.Local.sYear)
+'				V.Local.iYear.Set(V.Local.sYear)
+'				F.Intrinsic.String.Mid(V.Local.sDueDateOrig,5,2,V.Local.sMonth)
+'				V.Local.iMonth.Set(V.Local.sMonth)
+'				F.Intrinsic.String.Right(V.Local.sDueDateOrig,2,V.Local.sDay)
+'				V.Local.iDay.Set(V.Local.sDay)
+'			F.Intrinsic.Control.EndIf
+'			F.Intrinsic.Date.DateSerial(V.Local.iYear,V.Local.iMonth,V.Local.iDay,V.Local.dateDueOrig)
+'			' Calculate the new Due Date
+''			F.Intrinsic.Date.Month(V.Local.dateDate,V.Local.iMonth)
+''			F.Intrinsic.Date.Year(V.Local.dateDate,V.Local.iYear)
+''			F.Intrinsic.Date.DateSerial(V.Local.iYear,V.Local.iMonth,20,V.Local.dateDue)
+'			F.Intrinsic.Control.If(V.ODBC.Conx!rstInv.FieldValLong!TERMS_CODE,=,2)
+'				F.Intrinsic.Date.DateAdd("D",30,V.Local.dateDate,V.Local.dateDue)
+'			F.Intrinsic.Control.ElseIf(V.ODBC.Conx!rstInv.FieldValLong!TERMS_CODE,=,3)
+'				F.Intrinsic.Date.DateAdd("D",60,V.Local.dateDate,V.Local.dateDue)
+'			F.Intrinsic.Control.ElseIf(V.ODBC.Conx!rstInv.FieldValLong!TERMS_CODE,=,4)
+'				F.Intrinsic.Date.DateAdd("D",45,V.Local.dateDate,V.Local.dateDue)
+'			F.Intrinsic.Control.ElseIf(V.ODBC.Conx!rstInv.FieldValLong!TERMS_CODE,=,5)
+'				F.Intrinsic.Date.DateAdd("D",90,V.Local.dateDate,V.Local.dateDue)
+'			F.Intrinsic.Control.EndIf
+'			F.Intrinsic.Date.EndOfMonth(V.Local.dateDue,V.Local.dateDue)
+'			'Convert Dates to table format for Due Date to Store
+'	 		F.Intrinsic.Date.Day(V.Local.dateDue,V.Local.sDay)
+'			F.Intrinsic.String.LPad(V.Local.sDay,"0",2,V.Local.sDay)
+'			F.Intrinsic.Date.Month(V.Local.dateDue,V.Local.sMonth)
+'			F.Intrinsic.String.LPad(V.Local.sMonth,"0",2,V.Local.sMonth)
+'			F.Intrinsic.Date.Year(V.Local.dateDue,V.Local.sYear)
+'			F.Intrinsic.String.Concat(V.Local.sYear,V.Local.sMonth,V.Local.sDay,V.Local.sDue)
+'			'Update Changes to AR_OPEN_ITEMS table
+'			F.ODBC.conx!rstInv.Set!DUE_DATE(V.Local.sDue)
+'			F.ODBC.Conx!rstInv.Update
+'			'Check if the Record exists in GAB_AR_OITEMCHCH
+'			F.Intrinsic.String.Concat("Select * FROM GAB_AR_OITEMDT WHERE INVOICE='",V.ODBC.Conx!rstInv.FieldVal!INVOICE,"'",V.Local.sSql2)
+'			F.ODBC.Connection!conx2.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+'			F.ODBC.Connection!conx2.OpenRecordsetRW("rstInvNewSave",V.Local.sSql2)
+'			F.Intrinsic.Control.If(V.ODBC.conx2!rstInvNewSave.EOF,=,True)
+'				F.ODBC.conx2!rstInvNewSave.AddNew
+'				F.ODBC.conx2!rstInvNewSave.Set!INVOICE(V.ODBC.Conx!rstInv.FieldVal!INVOICE)
+'				F.ODBC.conx2!rstInvNewSave.Set!DATE_DUE_ORIGINAL(V.Local.dateDueOrig)
+'			F.Intrinsic.Control.EndIf
+'			F.ODBC.conx2!rstInvNewSave.Set!DATE_INVOICE(V.Local.dateInvoice)
+'			F.ODBC.conx2!rstInvNewSave.Set!DATE_DUE_NEW(V.Local.dateDue)
+'			F.ODBC.conx2!rstInvNewSave.Update
+'
+'			F.ODBC.conx2!rstInvNewSave.Close
+'			F.ODBC.Connection!conx2.Close
+'		F.Intrinsic.Control.EndIf
+'		F.ODBC.Conx!rstInv.MoveNext
+'	F.Intrinsic.Control.Loop
+'F.Intrinsic.Control.EndIf
+'F.ODBC.Conx!rstInv.Close
+F.ODBC.Connection!Conx.Close
+
+Program.Sub.Main.End
+
+Program.Sub.Comments.Start
+${$0$}$GAB_AR_OITEMDT$}$RRC$}$18/11/2013$}$False
+${$3$}$0$}$$}$-1$}$-1$}$$}$1/1/1900$}$Move Due Date from AR_OPEN_ITEMS to the next month 20th from the Invoice Date. Keep the original Info in a table GAB_AR_OITEMDT.
+${$5$}$2.0.0.0$}$2
+${$6$}$dyunus$}$20231207101142073$}$xZ6SHi8g7O0Qsxe6AiO2NH3PnOKQRy0T9g00wARJJv958xGw4kXK+20+dcGwjAftNZw7HFfLMmM=
+Program.Sub.Comments.End
+
